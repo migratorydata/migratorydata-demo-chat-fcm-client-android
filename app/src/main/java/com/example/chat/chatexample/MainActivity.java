@@ -13,6 +13,7 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -85,6 +86,42 @@ public class MainActivity extends AppCompatActivity {
                 return false;
             }
         });
+
+        final Button logout = findViewById(R.id.logout_btn);
+        logout.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                MainActivity.this.logout();
+            }
+        });
+
+        final Button closeApp = findViewById(R.id.closeapp_btn);
+        closeApp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                MainActivity.this.closeApp();
+            }
+        });
+
+    }
+
+    private void logout() {
+        if (chatApp == null) {
+            Log.i("LOG_TAG", "App is not initialize, ignore logout!");
+            return;
+        }
+
+        if (chatApp.getAppStatus() == ChatApp.AppStatus.LOG_IN) {
+            chatApp.logout();
+        }
+    }
+
+    private void closeApp() {
+        if (chatApp.getAppStatus() != ChatApp.AppStatus.LOG_OUT) {
+            Toast.makeText(getApplicationContext(), "Please LOG OUT before closing the APP", Toast.LENGTH_LONG).show();
+            return;
+        }
+        android.os.Process.killProcess(android.os.Process.myPid());
     }
 
     private void sendChatMessage() {

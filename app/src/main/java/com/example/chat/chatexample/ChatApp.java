@@ -30,6 +30,9 @@ public class ChatApp {
     // private static final String SERVER_ADDRESS_ENCRYPTED = "demo.migratorydata.com:443";
     // private static final boolean USE_ENCRYPTION = true;
 
+    private AppStatus appStatus = AppStatus.LOG_IN;
+    private String LOGOUT_SUBJECT = "/_migratorydata_/presence/logout";
+
     private Handler handler = new Handler();
 
     private final SortedMap<Long, String> roomMessages = new TreeMap<>();
@@ -87,6 +90,20 @@ public class ChatApp {
                         textViewInfo.append(status + " - " + info + "\n");
                     }
                 });
+
+                // when migratorydata.conf has set Entitlement = Custom
+                if (MigratoryDataListener.NOTIFY_SUBSCRIBE_ALLOW.equals(status) && LOGOUT_SUBJECT.equals(info)) {
+                    if (appStatus == AppStatus.PERFORMING_LOG_OUT) {
+                        updateAppStatus(AppStatus.LOG_OUT);
+                    }
+                }
+
+                // when migratorydata.conf has set Entitlement = Basic
+//                if (MigratoryDataListener.NOTIFY_SERVER_UP.equals(status)) {
+//                    if (appStatus == AppStatus.PERFORMING_LOG_OUT) {
+//                        updateAppStatus(AppStatus.LOG_OUT);
+//                    }
+//                }
             }
 
             private String formatChatMessage(JsonDecoder decodeChatMessage) {
@@ -150,5 +167,32 @@ public class ChatApp {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    synchronized public AppStatus getAppStatus() {
+        return appStatus;
+    }
+
+    synchronized private void updateAppStatus(AppStatus newStatus) {
+        this.appStatus = newStatus;
+    }
+
+    public void logout() {
+        migratoryDataClient.pause();
+
+        Collection<String> subjects = migratoryDataClient.getSubjects();
+        if (subjects.size() > 0) {
+            migratoryDataClient.unsubscribe(new ArrayList<String>(subjects));
+        }
+
+        migratoryDataClient.subscribe(Arrays.asList(LOGOUT_SUBJECT));
+
+        updateAppStatus(AppStatus.PERFORMING_LOG_OUT);
+
+        migratoryDataClient.resume();
+    }
+
+    enum AppStatus {
+        LOG_IN, PERFORMING_LOG_OUT, LOG_OUT
     }
 }

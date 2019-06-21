@@ -68,6 +68,24 @@
                 tools:text="username" />
         </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <Button
+                android:id="@+id/logout_btn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Logout" />
+
+            <Button
+                android:id="@+id/closeapp_btn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Close APP" />
+        </LinearLayout>
+
     </LinearLayout>
 
     <TextView
