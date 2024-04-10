@@ -1,8 +1,7 @@
 package com.example.chat.chatexample;
 
+import android.app.Activity;
 import android.os.Build;
-import android.support.annotation.NonNull;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
@@ -15,12 +14,14 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
-import com.google.firebase.iid.FirebaseInstanceId;
-import com.google.firebase.iid.InstanceIdResult;
+import com.google.firebase.messaging.FirebaseMessaging;
 
-public class MainActivity extends AppCompatActivity {
+
+public class MainActivity extends Activity {
     // TODO: to be configured
     public static final String LOG_TAG = "migratorydataChatApp";
     private static final String roomName = "demoRoom";
@@ -50,17 +51,17 @@ public class MainActivity extends AppCompatActivity {
         final TextView textViewInfo = (TextView) findViewById(R.id.info);
         textViewInfo.setMovementMethod(new ScrollingMovementMethod());
 
-        FirebaseInstanceId.getInstance().getInstanceId()
-                .addOnCompleteListener(new OnCompleteListener<InstanceIdResult>() {
+        FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(new OnCompleteListener<String>() {
                     @Override
-                    public void onComplete(@NonNull Task<InstanceIdResult> task) {
+                    public void onComplete(@NonNull Task<String> task) {
                         if (!task.isSuccessful()) {
-                            Log.i(LOG_TAG, "getInstanceId failed", task.getException());
+                            Log.w(LOG_TAG, "Fetching FCM registration token failed", task.getException());
                             return;
                         }
 
-                        // Get FCM ID token
-                        String fcmToken = task.getResult().getToken();
+                        // Get new FCM registration token
+                        String fcmToken = task.getResult();
 
                         Log.i(LOG_TAG, "Got FCM Token=" + fcmToken);
 
@@ -87,11 +88,11 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        final Button logout = findViewById(R.id.logout_btn);
+        final Button logout = findViewById(R.id.logInOut_btn);
         logout.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                MainActivity.this.logout();
+                MainActivity.this.logInOut();
             }
         });
 
@@ -105,14 +106,19 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void logout() {
+    private void logInOut() {
         if (chatApp == null) {
             Log.i("LOG_TAG", "App is not initialize, ignore logout!");
             return;
         }
 
+        Button btn = (Button) findViewById(R.id.logInOut_btn);
         if (chatApp.getAppStatus() == ChatApp.AppStatus.LOG_IN) {
             chatApp.logout();
+            btn.setText("Login");
+        } else if (chatApp.getAppStatus() == ChatApp.AppStatus.LOG_OUT) {
+            chatApp.login();
+            btn.setText("Logout");
         }
     }
 

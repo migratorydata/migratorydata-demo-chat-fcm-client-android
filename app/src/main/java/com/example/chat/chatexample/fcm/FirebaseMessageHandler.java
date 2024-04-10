@@ -1,5 +1,7 @@
 package com.example.chat.chatexample.fcm;
 
+import static android.app.PendingIntent.FLAG_IMMUTABLE;
+
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -8,7 +10,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.PowerManager;
-import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
 import com.example.chat.chatexample.MainActivity;
@@ -60,25 +61,17 @@ public class FirebaseMessageHandler extends FirebaseMessagingService {
         Intent intent = new Intent(this, MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
-                PendingIntent.FLAG_ONE_SHOT);
+                PendingIntent.FLAG_ONE_SHOT | FLAG_IMMUTABLE);
 
         Notification noti = null;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            noti = new Notification.Builder(getApplicationContext(), "push_channel_id")
-                    .setContentTitle(notification.get("title"))
-                    .setContentText(notification.get("body"))
-                    .setAutoCancel(true)
-                    .setSmallIcon(R.mipmap.ic_launcher)
-                    .setContentIntent(pendingIntent).build();
-        } else {
-            noti = new NotificationCompat.Builder(this)
-                    .setContentTitle(notification.get("title"))
-                    .setContentText(notification.get("body"))
-                    .setAutoCancel(true)
-                    .setSmallIcon(R.mipmap.ic_launcher)
-                    .setContentIntent(pendingIntent).build();
-        }
+        noti = new Notification.Builder(getApplicationContext(), "push_channel_id")
+                .setContentTitle(notification.get("title"))
+                .setContentText(notification.get("body"))
+                .setAutoCancel(true)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentIntent(pendingIntent).build();
+
         NotificationManager notificationManager =
                 (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         notificationManager.notify(0, noti);

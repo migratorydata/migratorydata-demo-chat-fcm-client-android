@@ -9,7 +9,9 @@ import com.example.chat.chatexample.util.JsonEncoder;
 import com.migratorydata.client.MigratoryDataClient;
 import com.migratorydata.client.MigratoryDataListener;
 import com.migratorydata.client.MigratoryDataLogLevel;
+import com.migratorydata.client.MigratoryDataLogListener;
 import com.migratorydata.client.MigratoryDataMessage;
+import com.migratorydata.client.utils.MonotonicId;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -24,14 +26,14 @@ import static com.example.chat.chatexample.MainActivity.LOG_TAG;
 
 public class ChatApp {
     // TODO: to be configured
-    private static final String PUBLISH_PASSWORD = "some-password";
-    private static final String SERVER_ADDRESS = "push.example.com:80";
+    private static final String PUBLISH_PASSWORD = "some-token";
+    private static final String SERVER_ADDRESS = "127.0.0.1:8800";
     private static final boolean USE_ENCRYPTION = false;
-    // private static final String SERVER_ADDRESS_ENCRYPTED = "demo.migratorydata.com:443";
-    // private static final boolean USE_ENCRYPTION = true;
+    //private static final String SERVER_ADDRESS = "demo.migratorydata.com";
+    //private static final boolean USE_ENCRYPTION = true;
 
     private AppStatus appStatus = AppStatus.LOG_IN;
-    private String LOGOUT_SUBJECT = "/_migratorydata_/presence/logout";
+    private String LOGOUT_SUBJECT = "/__migratorydata__/presence/logout";
 
     private Handler handler = new Handler();
 
@@ -52,18 +54,30 @@ public class ChatApp {
 
     public void init() {
         migratoryDataClient = new MigratoryDataClient();
+        migratoryDataClient.setLogListener(new MigratoryDataLogListener() {
+            @Override
+            public void onLog(String message, MigratoryDataLogLevel migratoryDataLogLevel) {
+                Log.i(LOG_TAG, message);
+            }
+        }, MigratoryDataLogLevel.DEBUG);
+
         migratoryDataClient.setEntitlementToken(PUBLISH_PASSWORD);
-        migratoryDataClient.setExternalToken(fcmToken);
+        migratoryDataClient.setExternalToken(fcmToken, new MonotonicId() {
+            @Override
+            public int get() {
+                return (int)(System.currentTimeMillis()/1000);
+            }
+        });
         migratoryDataClient.setListener(new MigratoryDataListener() {
             @Override
             public void onMessage(final MigratoryDataMessage message) {
                 Log.i(LOG_TAG, "Got onMessage=" + message);
 
-                if (message.isRecovery() || message.isSnapshot()) {
+                if (message.getMessageType() == MigratoryDataMessage.MessageType.RECOVERED || message.getMessageType() == MigratoryDataMessage.MessageType.SNAPSHOT) {
                     return;
                 }
 
-                final JsonDecoder decodeChatMessage = new JsonDecoder(message.getContent());
+                final JsonDecoder decodeChatMessage = new JsonDecoder(new String(message.getContent()));
                 String chatMessage = formatChatMessage(decodeChatMessage);
                 roomMessages.put(Long.valueOf(decodeChatMessage.getTimestamp()), chatMessage);
 
@@ -91,19 +105,11 @@ public class ChatApp {
                     }
                 });
 
-                // when migratorydata.conf has set Entitlement = Custom
-                if (MigratoryDataListener.NOTIFY_SUBSCRIBE_ALLOW.equals(status) && LOGOUT_SUBJECT.equals(info)) {
-                    if (appStatus == AppStatus.PERFORMING_LOG_OUT) {
+                if (MigratoryDataClient.NOTIFY_SERVER_UP.equals(status)) {
+                    if (appStatus == AppStatus.PERFORMING_LOG_OUT && migratoryDataClient.getSubjects().contains(LOGOUT_SUBJECT)) {
                         updateAppStatus(AppStatus.LOG_OUT);
                     }
                 }
-
-                // when migratorydata.conf has set Entitlement = Basic
-//                if (MigratoryDataListener.NOTIFY_SERVER_UP.equals(status)) {
-//                    if (appStatus == AppStatus.PERFORMING_LOG_OUT) {
-//                        updateAppStatus(AppStatus.LOG_OUT);
-//                    }
-//                }
             }
 
             private String formatChatMessage(JsonDecoder decodeChatMessage) {
@@ -119,13 +125,8 @@ public class ChatApp {
             }
         });
 
-        try {
-            migratoryDataClient.setLogging(MigratoryDataLogLevel.DEBUG, null, 0);
-            migratoryDataClient.setEncryption(USE_ENCRYPTION);
-            migratoryDataClient.setServers(new String[]{SERVER_ADDRESS});
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        migratoryDataClient.setEncryption(USE_ENCRYPTION);
+        migratoryDataClient.setServers(new String[]{SERVER_ADDRESS});
 
         migratoryDataClient.subscribeWithHistory(Arrays.asList("/rooms/" + roomName), 20);
         handler.post(new Runnable() {
@@ -134,6 +135,8 @@ public class ChatApp {
                 textViewInfo.append("Subscribing to room=" + "/rooms/" + roomName + "\n");
             }
         });
+
+        migratoryDataClient.connect();
     }
 
     public void pause() {
@@ -162,7 +165,7 @@ public class ChatApp {
 
         try {
             if (migratoryDataClient != null) {
-                migratoryDataClient.publish(new MigratoryDataMessage("/rooms/" + roomName, encoder.toString()));
+                migratoryDataClient.publish(new MigratoryDataMessage("/rooms/" + roomName, encoder.toString().getBytes()));
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -180,16 +183,27 @@ public class ChatApp {
     public void logout() {
         migratoryDataClient.pause();
 
-        Collection<String> subjects = migratoryDataClient.getSubjects();
-        if (subjects.size() > 0) {
-            migratoryDataClient.unsubscribe(new ArrayList<String>(subjects));
-        }
+        migratoryDataClient.unsubscribe(new ArrayList<String>(migratoryDataClient.getSubjects()));
 
         migratoryDataClient.subscribe(Arrays.asList(LOGOUT_SUBJECT));
 
         updateAppStatus(AppStatus.PERFORMING_LOG_OUT);
 
         migratoryDataClient.resume();
+    }
+
+    public void login() {
+        if (appStatus == AppStatus.LOG_OUT) {
+            migratoryDataClient.pause();
+
+            migratoryDataClient.unsubscribe(new ArrayList<String>(migratoryDataClient.getSubjects()));
+
+            migratoryDataClient.subscribe(Arrays.asList("/rooms/" + roomName));
+
+            updateAppStatus(AppStatus.LOG_IN);
+
+            migratoryDataClient.resume();
+        }
     }
 
     enum AppStatus {
