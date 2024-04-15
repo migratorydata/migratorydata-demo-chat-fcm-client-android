@@ -62,12 +62,7 @@ public class ChatApp {
         }, MigratoryDataLogLevel.DEBUG);
 
         migratoryDataClient.setEntitlementToken(PUBLISH_PASSWORD);
-        migratoryDataClient.setExternalToken(fcmToken, new MonotonicId() {
-            @Override
-            public int get() {
-                return (int)(System.currentTimeMillis()/1000);
-            }
-        });
+        migratoryDataClient.setExternalToken(fcmToken);
         migratoryDataClient.setListener(new MigratoryDataListener() {
             @Override
             public void onMessage(final MigratoryDataMessage message) {
